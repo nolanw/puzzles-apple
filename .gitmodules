@@ -1,0 +1,6 @@
+[submodule "puzzles"]
+	path = puzzles
+	url = https://git.tartarus.org/simon/puzzles.git
+[submodule "halibut"]
+	path = halibut
+	url = https://git.tartarus.org/simon/halibut.git

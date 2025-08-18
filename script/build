@@ -1,0 +1,97 @@
+#!/bin/sh
+set -e
+
+root="$(CDPATH= cd -- "$(dirname -- "$0")"/.. && pwd)"
+cd "$root"
+
+scratch="$root"/scratch
+
+build_halibut() {
+    halibut_scratch="$scratch"/halibut
+    mkdir -p "$halibut_scratch"
+    cd "$halibut_scratch"
+    cmake ../../halibut
+    cmake --build . --parallel 4
+}
+
+build_puzzles() {
+    local puzzles_scratch="$scratch"/puzzles
+    mkdir -p "$puzzles_scratch"
+    cd "$puzzles_scratch"
+    cmake "$root"/puzzles -DCMAKE_PROGRAM_PATH="$halibut_scratch"
+    cmake --build . --parallel 4
+    puzzles_app="$puzzles_scratch"/Puzzles.app
+}
+
+check_vars() {
+    local missing=
+    while read varname; do
+        local tmp
+        eval tmp=\$$varname
+        [ "$tmp" ] || missing="$missing
+    $varname"
+    done <<'VARLIST'
+        MAC_BUNDLE_IDENTIFIER
+        MAC_CODESIGN_CERT_NAME
+        NOTARY_APPLE_ID
+        NOTARY_KEYCHAIN_PROFILE
+        NOTARY_TEAM_ID
+VARLIST
+[ -z "$missing" ] || die "Missing env vars (see README.md for explanation):$missing"
+}
+
+die() {
+    printf "%s\n" "$*" >&2
+    exit 1
+}
+
+set_info_plist_values() {
+    local info_plist="$puzzles_app"/Contents/Info.plist
+    /usr/libexec/PlistBuddy -c \
+        "Set :CFBundleIdentifier $MAC_BUNDLE_IDENTIFIER" \
+        "$info_plist"
+    local now="$(date '+%Y%m%d')"
+    local rev="$(cd "$root"/puzzles && git rev-parse --short HEAD)"
+    local version="$now"."$rev"
+    /usr/libexec/PlistBuddy -c \
+        "Set :CFBundleVersion $version" \
+        "$info_plist"
+    /usr/libexec/PlistBuddy -c \
+        "Set :CFBundleShortVersionString $version" \
+        "$info_plist"
+}
+
+sign() {
+    /usr/bin/codesign \
+        --force \
+        --sign "$MAC_CODESIGN_CERT_NAME" \
+        --options runtime \
+        --verbose \
+        "$puzzles_app"
+}
+
+notarize_and_staple() {
+    local notary_scratch="$scratch"/notary
+    mkdir -p "$notary_scratch"
+    local puzzles_notary="$notary_scratch"/Puzzles.zip
+    ditto -c -k --keepParent "$puzzles_app" "$puzzles_notary"
+    xcrun notarytool submit \
+        --apple-id "$NOTARY_APPLE_ID" \
+        --team-id "$NOTARY_TEAM_ID" \
+        --keychain-profile "$NOTARY_KEYCHAIN_PROFILE" \
+        --wait "$puzzles_notary"
+    xcrun stapler staple "$puzzles_app"
+}
+
+zip_for_distribution() {
+    puzzles_zip="$scratch"/Puzzles.zip
+    ditto -c -k --keepParent "$puzzles_app" "$puzzles_zip"
+}
+
+check_vars &&
+build_halibut &&
+build_puzzles &&
+set_info_plist_values &&
+sign &&
+notarize_and_staple &&
+zip_for_distribution
