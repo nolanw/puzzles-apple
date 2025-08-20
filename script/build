@@ -4,6 +4,7 @@ set -e
 root="$(CDPATH= cd -- "$(dirname -- "$0")"/.. && pwd)"
 cd "$root"
 
+job_count="$(sysctl -n hw.logicalcpu)"
 scratch="$root"/scratch
 
 build_halibut() {
@@ -13,17 +14,17 @@ build_halibut() {
     echo "Configuring halibut…" &&
     cmake ../../halibut &&
     echo "Building halibut…" &&
-    cmake --build . --config Release --parallel 4
+    cmake --build . --config Release --parallel "$job_count"
 }
 
 build_puzzles() {
-    local puzzles_scratch="$scratch"/puzzles &&
+    puzzles_scratch="$scratch"/puzzles &&
     mkdir -p "$puzzles_scratch" &&
     cd "$puzzles_scratch" &&
     echo "Configuring puzzles…" &&
     cmake "$root"/puzzles -DCMAKE_PROGRAM_PATH="$halibut_scratch" &&
     echo "Building puzzles…" &&
-    cmake --build . --config Release --parallel 4 &&
+    cmake --build . --config Release --parallel "$job_count" &&
     puzzles_app="$puzzles_scratch"/Puzzles.app
 }
 
@@ -51,19 +52,23 @@ die() {
 }
 
 notarize_and_staple() {
-    local notary_scratch="$scratch"/notary &&
-    local puzzles_notary="$notary_scratch"/Puzzles.zip &&
-    mkdir -p "$notary_scratch" &&
-    echo "Zipping $puzzles_app for notarization…" &&
-    ditto -c -k --keepParent "$puzzles_app" "$puzzles_notary" &&
-    echo "Submitting ${puzzles_notary}…" &&
+    echo "Submitting $puzzles_dmg for notarization…" &&
     xcrun notarytool submit \
         --apple-id "$NOTARY_APPLE_ID" \
         --team-id "$NOTARY_TEAM_ID" \
         --keychain-profile "$NOTARY_KEYCHAIN_PROFILE" \
-        --wait "$puzzles_notary" &&
-    echo "Stapling ${puzzles_app}…" &&
-    xcrun stapler staple "$puzzles_app"
+        --verbose \
+        --wait \
+        "$puzzles_dmg" &&
+    echo "Stapling ${puzzles_dmg}…" &&
+    xcrun stapler staple "$puzzles_dmg"
+}
+
+package_for_distribution() {
+    echo "Packaging $puzzles_app for distribution…" &&
+    cd "$puzzles_scratch" &&
+    make -j"$job_count" package &&
+    puzzles_dmg="$puzzles_scratch"/Puzzles.dmg
 }
 
 set_info_plist_values() {
@@ -90,17 +95,11 @@ sign() {
         "$puzzles_app"
 }
 
-zip_for_distribution() {
-    puzzles_zip="$scratch"/Puzzles.zip &&
-    echo "Zipping ${puzzles_app} for distribution…" &&
-    ditto -c -k --keepParent "$puzzles_app" "$puzzles_zip"
-}
-
 check_vars &&
 build_halibut &&
 build_puzzles &&
 set_info_plist_values &&
 sign &&
+package_for_distribution &&
 notarize_and_staple &&
-zip_for_distribution &&
-echo "$puzzles_zip"
+echo "$puzzles_dmg"
