@@ -1,0 +1,26 @@
+name: Release macOS app
+on:
+  push:
+    branches: [main]
+jobs:
+  release-mac-app:
+    runs-on: macos-latest
+    environment: Production
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: 'recursive'
+      - run: script/ci-build-mac
+        env:
+          CI_KEYCHAIN_PASSWORD: ${{ secrets.CI_KEYCHAIN_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAC_BUNDLE_IDENTIFIER: ${{ vars.MAC_BUNDLE_IDENTIFIER }}
+          MAC_CODESIGN_CERT_BASE64: ${{ secrets.MAC_CODESIGN_CERT_BASE64 }}
+          MAC_CODESIGN_CERT_NAME: ${{ secrets.MAC_CODESIGN_CERT_NAME }}
+          MAC_CODESIGN_CERT_PASSWORD: ${{ secrets.MAC_CODESIGN_CERT_PASSWORD }}
+          NOTARY_APP_SPECIFIC_PASSWORD: ${{ secrets.NOTARY_APP_SPECIFIC_PASSWORD }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_KEYCHAIN_PROFILE: puzzles
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}

@@ -1,0 +1,16 @@
+#!/bin/sh                                                                                           
+set -e
+
+root="$(CDPATH= cd -- "$(dirname -- "$0")"/.. && pwd)"
+cd "$root"
+
+script/prepare-keychain-and-notarytool &&
+
+mac_version="$(script/version)" &&
+puzzles_zip="$(MAC_VERSION="$mac_version" script/build | tail -n 1)" &&
+
+release_version="$mac_version"."$(cd "$root" && git rev-parse --short HEAD)"
+gh release create \
+    "$release_version" \
+    "$puzzles_zip" \
+    --latest

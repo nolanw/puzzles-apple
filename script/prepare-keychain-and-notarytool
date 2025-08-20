@@ -1,0 +1,52 @@
+#!/bin/sh                                                                                           
+set -e
+
+root="$(CDPATH= cd -- "$(dirname -- "$0")"/.. && pwd)"
+cd "$root"
+
+scratch="$root"/scratch
+
+decode_cert() {
+    cert_path="$scratch"/DeveloperID.p12 &&
+    mkdir -p "$scratch" &&
+    echo "Decoding cert…" &&
+    printf "%s" "$MAC_CODESIGN_CERT_BASE64" | base64 --decode --output "$cert_path" &&
+    echo "Cert decoded to $cert_path"
+}
+
+make_keychain() {
+    local keychain_path="$scratch"/ci.keychain &&
+    mkdir -p "$scratch" &&
+    security -v create-keychain -p "$CI_KEYCHAIN_PASSWORD" "$keychain_path" &&
+    echo "Keychain created at $keychain_path" &&
+    security -v default-keychain -s "$keychain_path" &&
+    echo "Default keychain set to $keychain_path" &&
+    security -v unlock-keychain -p "$CI_KEYCHAIN_PASSWORD" "$keychain_path" &&
+    echo "Unlocked keychain at $keychain_path" &&
+    security -v import "$cert_path" \
+        -k "$keychain_path" \
+        -t agg \
+        -f pkcs12 \
+        -P "$MAC_CODESIGN_CERT_PASSWORD" \
+        -T /usr/bin/codesign &&
+    echo "Imported cert into keychain at $keychain_path" &&
+    security -v set-key-partition-list \
+        -S 'apple-tool:,apple:,codesign:' \
+        -s \
+        -k "$CI_KEYCHAIN_PASSWORD" \
+        "$keychain_path" &&
+    echo "Set key partition list at $keychain_path"
+}
+
+save_notarytool_profile() {
+    xcrun notarytool store-credentials \
+        "$NOTARY_KEYCHAIN_PROFILE" \
+        --apple-id "$NOTARY_APPLE_ID" \
+        --team-id "$NOTARY_TEAM_ID" \
+        --password "$NOTARY_APP_SPECIFIC_PASSWORD"
+}
+
+decode_cert &&
+make_keychain &&
+save_notarytool_profile
+

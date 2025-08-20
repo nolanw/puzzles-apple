@@ -1,0 +1,8 @@
+#!/bin/sh                                                                                           
+set -e
+
+root="$(CDPATH= cd -- "$(dirname -- "$0")"/.. && pwd)"
+
+now="$(date '+%Y%m%d')"
+rev="$(cd "$root"/puzzles && git rev-parse --short HEAD)"
+echo "$now"."$rev"
