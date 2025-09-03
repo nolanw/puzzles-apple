@@ -1,0 +1,54 @@
+#!/bin/sh
+set -e
+
+root="$(CDPATH= cd -- "$(dirname -- "$0")"/.. && pwd)"
+cd "$root"
+
+check_build() {
+    echo "Checking build…"
+    MAC_BUNDLE_IDENTIFIER=example script/build
+}
+
+checkout_todays_branch() {
+    echo "Checking out today's branch…"
+    local now="$(date '+%Y%m%d')"
+    git checkout -b pull-upstream-"$now"
+}
+
+commit() {
+    echo "Committing upstream changes…"
+    git commit -m "Pull changes from upstream"
+}
+
+create_pr() {
+    echo "Creating PR…"
+    gh pr create --fill
+}
+
+die() {
+    printf "%s\n" "$*" >&2
+    exit 1
+}
+
+has_changes() {
+    [ "$(git status --porcelain)" ]
+}
+
+push() {
+    echo "Pushing…"
+    git push
+}
+
+update_submodules() {
+    echo "Updating submodules…"
+    git submodule update --init --recursive --remote
+}
+
+{ ! has_changes || die "Should not have any changes after checkout"; } &&
+checkout_todays_branch &&
+update_submodules &&
+{ has_changes || { echo "No upstream changes"; exit 0; }; } &&
+check_build &&
+commit &&
+push &&
+create_pr
