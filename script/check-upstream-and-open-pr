@@ -12,7 +12,8 @@ check_build() {
 checkout_todays_branch() {
     echo "Checking out today's branch…"
     local now="$(date '+%Y%m%d')"
-    git checkout -b pull-upstream-"$now"
+    branch_name=pull-upstream-"$now"
+    git checkout -b "$branch_name"
 }
 
 commit() {
@@ -36,7 +37,7 @@ has_changes() {
 
 push() {
     echo "Pushing…"
-    git push origin
+    git push origin "$branch_name"
 }
 
 update_submodules() {
