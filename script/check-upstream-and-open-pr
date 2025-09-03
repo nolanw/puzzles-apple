@@ -23,7 +23,7 @@ commit() {
 
 create_pr() {
     echo "Creating PR…"
-    gh pr create --fill
+    gh pr create --title "Pull changes from upstream" --body ""
 }
 
 die() {
