@@ -7,9 +7,14 @@ cd "$root"
 script/prepare-keychain-and-notarytool &&
 
 mac_version="$(script/version)" &&
-puzzles_dmg="$(MAC_VERSION="$mac_version" script/build | tail -n 1)" &&
+build_outputs="$(MAC_VERSION="$mac_version" script/build | tail -n 2)" &&
+puzzles_scratch="$(echo "$build_outputs" | head -n 1)" &&
+puzzles_app="$(echo "$build_outputs" | head -n 2 | tail -n 1)" &&
 
-release_version="$mac_version"."$(cd "$root" && git rev-parse --short HEAD)"
+puzzles_dmg="$(script/prep-for-distribution-mac "$puzzles_scratch" "$puzzles_app" | tail -n 1)" &&
+
+commit="$(cd "$root" && git rev-parse --short HEAD)" &&
+release_version="$mac_version"."$commit" &&
 gh release create \
     "$release_version" \
     "$puzzles_dmg" \

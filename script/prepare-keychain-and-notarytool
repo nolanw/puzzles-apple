@@ -6,12 +6,36 @@ cd "$root"
 
 scratch="$root"/scratch
 
+check_vars() {
+    local missing=
+    while read varname; do
+        local tmp
+        eval tmp=\$$varname
+        [ "$tmp" ] || missing="$missing
+    $varname"
+    done <<'VARLIST'
+        CI_KEYCHAIN_PASSWORD
+        MAC_CODESIGN_CERT_BASE64
+        MAC_CODESIGN_CERT_PASSWORD
+        NOTARY_APP_SPECIFIC_PASSWORD
+        NOTARY_APPLE_ID
+        NOTARY_KEYCHAIN_PROFILE
+        NOTARY_TEAM_ID
+VARLIST
+    [ -z "$missing" ] || die "Missing env vars (see README.md for explanation):$missing"
+}
+
 decode_cert() {
     cert_path="$scratch"/DeveloperID.p12 &&
     mkdir -p "$scratch" &&
     echo "Decoding cert…" &&
     printf "%s" "$MAC_CODESIGN_CERT_BASE64" | base64 --decode --output "$cert_path" &&
     echo "Cert decoded to $cert_path"
+}
+
+die() {
+    printf "%s\n" "$*" >&2
+    exit 1
 }
 
 make_keychain() {
@@ -46,7 +70,7 @@ save_notarytool_profile() {
         --password "$NOTARY_APP_SPECIFIC_PASSWORD"
 }
 
+check_vars &&
 decode_cert &&
 make_keychain &&
 save_notarytool_profile
-
