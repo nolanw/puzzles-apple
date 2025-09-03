@@ -17,7 +17,7 @@ checkout_todays_branch() {
 
 commit() {
     echo "Committing upstream changes…"
-    git commit -m "Pull changes from upstream"
+    git commit -A -m "Pull changes from upstream"
 }
 
 create_pr() {
