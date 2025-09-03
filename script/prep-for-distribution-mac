@@ -1,0 +1,66 @@
+#!/bin/sh
+set -e
+
+root="$(CDPATH= cd -- "$(dirname -- "$0")"/.. && pwd)"
+
+check_vars() {
+    local missing=
+    while read varname; do
+        local tmp
+        eval tmp=\$$varname
+        [ "$tmp" ] || missing="$missing
+    $varname"
+    done <<'VARLIST'
+        MAC_CODESIGN_CERT_NAME
+        NOTARY_APPLE_ID
+        NOTARY_KEYCHAIN_PROFILE
+        NOTARY_TEAM_ID
+VARLIST
+    [ "$missing" ] && die "Missing env vars (see README.md for explanation):$missing"
+}
+
+die() {
+    printf "%s\n" "$*" >&2
+    exit 1
+}
+
+notarize_and_staple() {
+    echo "Submitting $puzzles_dmg for notarization…" &&
+    xcrun notarytool submit \
+        --apple-id "$NOTARY_APPLE_ID" \
+        --team-id "$NOTARY_TEAM_ID" \
+        --keychain-profile "$NOTARY_KEYCHAIN_PROFILE" \
+        --verbose \
+        --wait \
+        "$puzzles_dmg" &&
+    echo "Stapling ${puzzles_dmg}…" &&
+    xcrun stapler staple "$puzzles_dmg"
+}
+
+package_for_distribution() {
+    echo "Packaging $puzzles_app for distribution…" &&
+    cd "$puzzles_scratch" &&
+    make -j"$job_count" package &&
+    puzzles_dmg="$puzzles_scratch"/Puzzles.dmg
+}
+
+sign() {
+    echo "Signing ${puzzles_app}…" &&
+    /usr/bin/codesign \
+        --force \
+        --sign "$MAC_CODESIGN_CERT_NAME" \
+        --options runtime \
+        --verbose \
+        "$puzzles_app"
+}
+
+[ "$1" ] &&
+puzzles_scratch="$1" || die "Missing path to `make package`"
+
+[ "$2" ] &&
+puzzles_app="$2" || die "Missing path to Puzzles.app"
+
+sign &&
+package_for_distribution &&
+notarize_and_staple &&
+echo "$puzzles_dmg"

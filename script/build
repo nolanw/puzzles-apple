@@ -37,10 +37,6 @@ check_vars() {
     $varname"
     done <<'VARLIST'
         MAC_BUNDLE_IDENTIFIER
-        MAC_CODESIGN_CERT_NAME
-        NOTARY_APPLE_ID
-        NOTARY_KEYCHAIN_PROFILE
-        NOTARY_TEAM_ID
 VARLIST
     [ -z "$missing" ] || die "Missing env vars (see README.md for explanation):$missing"
     : ${MAC_VERSION:="$("$root"/script/version)"}
@@ -49,26 +45,6 @@ VARLIST
 die() {
     printf "%s\n" "$*" >&2
     exit 1
-}
-
-notarize_and_staple() {
-    echo "Submitting $puzzles_dmg for notarization…" &&
-    xcrun notarytool submit \
-        --apple-id "$NOTARY_APPLE_ID" \
-        --team-id "$NOTARY_TEAM_ID" \
-        --keychain-profile "$NOTARY_KEYCHAIN_PROFILE" \
-        --verbose \
-        --wait \
-        "$puzzles_dmg" &&
-    echo "Stapling ${puzzles_dmg}…" &&
-    xcrun stapler staple "$puzzles_dmg"
-}
-
-package_for_distribution() {
-    echo "Packaging $puzzles_app for distribution…" &&
-    cd "$puzzles_scratch" &&
-    make -j"$job_count" package &&
-    puzzles_dmg="$puzzles_scratch"/Puzzles.dmg
 }
 
 set_info_plist_values() {
@@ -85,21 +61,9 @@ set_info_plist_values() {
         "$info_plist"
 }
 
-sign() {
-    echo "Signing ${puzzles_app}…" &&
-    /usr/bin/codesign \
-        --force \
-        --sign "$MAC_CODESIGN_CERT_NAME" \
-        --options runtime \
-        --verbose \
-        "$puzzles_app"
-}
-
 check_vars &&
 build_halibut &&
 build_puzzles &&
 set_info_plist_values &&
-sign &&
-package_for_distribution &&
-notarize_and_staple &&
-echo "$puzzles_dmg"
+echo "$puzzles_scratch" &&
+echo "$puzzles_app"
