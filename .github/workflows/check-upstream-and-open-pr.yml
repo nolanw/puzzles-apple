@@ -12,3 +12,5 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - run: script/check-upstream-and-open-pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
