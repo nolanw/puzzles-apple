@@ -36,7 +36,7 @@ has_changes() {
 
 push() {
     echo "Pushing…"
-    git push
+    git push origin
 }
 
 update_submodules() {
