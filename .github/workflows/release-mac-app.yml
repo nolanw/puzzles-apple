@@ -10,8 +10,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
-        with:
-          submodules: 'recursive'
+      - run: |
+          git submodule sync --recursive
+          git submodule update --init --force --depth=20 --recursive
       - run: script/ci-build-mac
         env:
           CI_KEYCHAIN_PASSWORD: ${{ secrets.CI_KEYCHAIN_PASSWORD }}
